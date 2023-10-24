@@ -246,6 +246,8 @@ proc contents data = recs;
 run;
 ```
 
+[Contents of the dataset](https://github.com/AlanGalaxy/506A4/blob/main/3-contents.html)
+
 Calculate the frequency and percentage of all the states. Get the result of Michigan.
 
 ``` sas
@@ -270,9 +272,9 @@ proc print data = michigan;
 run;
 ```
 
-California has the highest percentage of records. Full table Highest state
+California has the highest percentage of records. [Full table](https://github.com/AlanGalaxy/506A4/blob/main/3-freq_percents_full.html), [Highest state](https://github.com/AlanGalaxy/506A4/blob/main/3-freq_percents_highest.html)
 
-3.17% of records correspond to Michigan. Michigan state
+3.17% of records correspond to Michigan. [Michigan state](https://github.com/AlanGalaxy/506A4/blob/main/3-freq_percents_michigan.html)
 
 \(b\)
 
@@ -293,7 +295,7 @@ proc univariate data = positive_cost noprint;
 run;
 ```
 
-Histogram
+[Histogram](https://github.com/AlanGalaxy/506A4/blob/main/3-hist_total_electricity.html)
 
 \(c\)
 
@@ -314,7 +316,7 @@ proc univariate data = log_cost noprint;
 run;
 ```
 
-Histogram
+[Histogram](https://github.com/AlanGalaxy/506A4/blob/main/3-hist_log_total_electricity.html)
 
 \(d\)
 
@@ -334,7 +336,7 @@ proc reg data=positive_log_cost_garage;
 run;
 ```
 
-Model
+[Model](https://github.com/AlanGalaxy/506A4/blob/main/3-reg_model.html)
 
 \(e\)
 
@@ -365,7 +367,7 @@ run;
 ods html close;
 ```
 
-Plot
+[Scatter plot](https://github.com/AlanGalaxy/506A4/blob/main/3-predicted_real_plot.html)
 
 ## Problem 4
 

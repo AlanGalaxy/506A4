@@ -3433,6 +3433,7 @@ run;
 /* view the contents of this file: ----------------------------------------- */
 proc contents data = recs;
 run;</code></pre>
+<p><a href="https://github.com/AlanGalaxy/506A4/blob/main/3-contents.html">Contents of the dataset</a></p>
 <p>Calculate the frequency and percentage of all the states. Get the result of Michigan.</p>
 <pre class="sas"><code>/* calculate the frequency and percentage: --------------------------------- */
 proc freq data = recs order = freq;
@@ -3453,8 +3454,8 @@ run;
 /* print the percentage of Michian: ---------------------------------------- */
 proc print data = michigan;
 run;</code></pre>
-<p>California has the highest percentage of records. Full table Highest state</p>
-<p>3.17% of records correspond to Michigan. Michigan state</p>
+<p>California has the highest percentage of records. <a href="https://github.com/AlanGalaxy/506A4/blob/main/3-freq_percents_full.html">Full table</a>, <a href="https://github.com/AlanGalaxy/506A4/blob/main/3-freq_percents_highest.html">Highest state</a></p>
+<p>3.17% of records correspond to Michigan. <a href="https://github.com/AlanGalaxy/506A4/blob/main/3-freq_percents_michigan.html">Michigan state</a></p>
 <p>(b)</p>
 <p>Get the positive data and plot the histogram.</p>
 <pre class="sas"><code>/* get those with strictly positive electricity cost: ---------------------- */
@@ -3469,7 +3470,7 @@ proc univariate data = positive_cost noprint;
     var DOLLAREL;
     histogram DOLLAREL;
 run;</code></pre>
-<p>Histogram</p>
+<p><a href="https://github.com/AlanGalaxy/506A4/blob/main/3-hist_total_electricity.html">Histogram</a></p>
 <p>(c)</p>
 <p>Calculate the log value and plot the histogram.</p>
 <pre class="sas"><code>/* get the log values of electricity cost: --------------------------------- */
@@ -3484,7 +3485,7 @@ proc univariate data = log_cost noprint;
     var log_electric_cost;
     histogram log_electric_cost;
 run;</code></pre>
-<p>Histogram</p>
+<p><a href="https://github.com/AlanGalaxy/506A4/blob/main/3-hist_log_total_electricity.html">Histogram</a></p>
 <p>(d)</p>
 <p>Remove the missing values and fit the model.</p>
 <pre class="sas"><code>/* remove the missing data in garage column: ------------------------------- */
@@ -3498,7 +3499,7 @@ proc reg data=positive_log_cost_garage;
     weight NWEIGHT;
     model log_electric_cost = TOTROOMS PRKGPLC1;
 run;</code></pre>
-<p>Model</p>
+<p><a href="https://github.com/AlanGalaxy/506A4/blob/main/3-reg_model.html">Model</a></p>
 <p>(e)</p>
 <p>Get the predicted data.</p>
 <pre class="sas"><code>/* get the predicted values: ------------------------------------------------ */
@@ -3519,7 +3520,7 @@ proc sgplot data = pred_data;
     scatter x = pred_electric_cost y = DOLLAREL;
 run;
 ods html close;</code></pre>
-<p>Plot</p>
+<p><a href="https://github.com/AlanGalaxy/506A4/blob/main/3-predicted_real_plot.html">Scatter plot</a></p>
 </section>
 <section id="problem-4" class="level2">
 <h2 class="anchored" data-anchor-id="problem-4">Problem 4</h2>
