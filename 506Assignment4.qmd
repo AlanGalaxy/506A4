@@ -1,0 +1,706 @@
+---
+title: "506Assignment4"
+author: "Jiaqi Sun"
+format: 
+  html:
+    embed-resources: true
+editor: visual
+---
+
+Github repository: [Github](https://github.com/AlanGalaxy/506A4)
+
+## Problem 1
+
+Load the packages and dataset.
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+# install.packages("nycflights13")
+library(nycflights13)
+library(tidyverse)
+data(flights)
+```
+
+\(a\)
+
+For departure data
+
+```{r}
+# departure
+flights %>% 
+  # Group by the departure airport
+  group_by(origin) %>% 
+  summarise(
+    mean_dep_delay = mean(dep_delay, na.rm = TRUE),
+    median_dep_delay = median(dep_delay, na.rm = TRUE)
+  ) %>% 
+  ungroup() %>% 
+  # Left join with the dataset airports to get the name of airports.
+  left_join(airports, by = c("origin" = "faa")) %>% 
+  select(name, mean_dep_delay, median_dep_delay) %>% 
+  arrange(desc(mean_dep_delay)) -> departure_delay
+
+print(departure_delay, n = nrow(departure_delay))
+```
+
+For arrival data
+
+```{r}
+# arrival
+flights %>% 
+  # Group by the departure airport
+  group_by(dest) %>% 
+  summarise(
+    mean_arr_delay = mean(arr_delay, na.rm = TRUE),
+    median_arr_delay = median(arr_delay, na.rm = TRUE),
+    count = n()
+  ) %>% 
+  ungroup() %>% 
+  # Select those with 10 or more flights.
+  filter(count >= 10) %>% 
+  # Left join with the dataset airports to get the name of airports.
+  left_join(airports, by = c("dest" = "faa")) %>% 
+  select(name, mean_arr_delay, median_arr_delay) %>% 
+  arrange(desc(mean_arr_delay)) -> arrival_delay
+
+print(arrival_delay, n = nrow(arrival_delay))
+```
+
+\(b\)
+
+The speed column in "planes" dataset is empty. We need to calculate the average speed by ourselves. The first method is to calculate the average speed for each flight, and then get the mean. But this may be criticized for bias due to different distances in each flight.
+
+```{r}
+flights %>% 
+  # Left join with the dataset planes to get the model
+  left_join(planes, by = "tailnum") %>% 
+  group_by(model) %>% 
+  summarise(
+    average_speed = mean(distance / air_time, na.rm = TRUE) * 60, 
+    num_flight = n()
+  ) %>% 
+  ungroup() %>% 
+  select(model, average_speed, num_flight) %>% 
+  arrange(desc(average_speed)) %>% 
+  # Get the first one
+  head(1) -> average_speed
+
+print(average_speed, n = nrow(average_speed))
+```
+
+Another method to calculate the total distance and total air time, and then get the average speed. This method is **preferred**. From the results, they are basically the same.
+
+```{r}
+flights %>% 
+  # Left join with the dataset planes to get the model
+  left_join(planes, by = "tailnum") %>% 
+  group_by(model) %>% 
+  # Drop those rows who have NA in either "distance" or "air_time"
+  drop_na(c(distance, air_time)) %>% 
+  summarise(
+    average_speed = sum(distance) / sum(air_time) * 60, 
+    num_flight = n()
+  ) %>% 
+  ungroup() %>% 
+  select(model, average_speed, num_flight) %>% 
+  arrange(desc(average_speed)) %>% 
+  # Get the first one
+  head(1) -> average_speed
+
+print(average_speed, n = nrow(average_speed))
+```
+
+## Problem 2
+
+Load the dataset.
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+library(tidyverse)
+nnmaps <- read_csv("D:/Code/R/chicago-nmmaps.csv")
+nnmaps$date <- as.Date(nnmaps$date)
+```
+
+The function:
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+#' Get the average temperature of the given month
+#'
+#' @param month the name of the month (full or short version) or an integer (1 ~ 12)
+#' @param year an integer year between 1997 and 2000
+#' @param data the dataset to obtain data from
+#' @param celsius Logically indicating whther the results should be in celsius.                       Default is FALSE
+#' @param average_fn A function with which to compute the mean. Default is mean
+#' @param ... Additional arguments to "average_fn"
+#'
+#' @return numeric vector of length 1, the average temperature of that month
+#'
+#' @examples get_temp("Apr", 1999, data = nnmaps, celsius = TRUE)
+#'           > [1] 9.888889
+get_temp <- function(month, year, data, celsius = FALSE, average_fn = mean, ...) {
+  if (is.numeric(month)) {
+    if (month < 1 || month > 12) {
+      stop("Invalid month. Please provide an integer between 1 and 12 or 
+           month name.")
+    }
+  } else if (is.character(month)) {
+    month1 <- match(tolower(month), tolower(month.name))
+    month2 <- match(tolower(month), tolower(month.abb))
+    if (is.na(month1) & is.na(month2)) {
+      stop("Invalid month. Please provide an integer between 1 and 12 or 
+           month name.")
+    } else if (is.na(month1)) {
+      month <- month2
+    } else {
+      month <- month1
+    }
+  } else {
+    stop("Invalid month. Please provide an integer between 1 and 12 or 
+           month name.")
+  }
+  
+  if (is.numeric(year)) {
+    if (year <= 1997 | year >= 2000) {
+      stop("We do not have the data. Please provide a year between 1997 and 2000.")
+    }
+  } else {
+    stop("Invalid year. Please provide an integer.")
+  }
+  
+  if (!is.function(average_fn)) {
+    stop("Invalid average_fn. Please provide a function.")
+  }
+  
+  data %>% 
+    # The year column conflicts with the input name, delete it
+    select(-year) %>% 
+    # Get the data with that month, year
+    filter(month(date) == month, year(date) == year) %>% 
+    select(temp) %>% 
+    summarise(mean_temp = average_fn(temp, ...)) -> output
+  
+  if (celsius) {
+    output$mean_temp <- (output$mean_temp - 32) * (5/9)
+  }
+  
+  return(output$mean_temp)
+}
+```
+
+Demonstrations:
+
+```{r}
+get_temp("Apr", 1999, data = nnmaps)
+```
+
+```{r}
+get_temp("Apr", 1999, data = nnmaps, celsius = TRUE)
+```
+
+```{r}
+get_temp(10, 1998, data = nnmaps, average_fn = median)
+```
+
+```{r}
+#| error: true
+get_temp(13, 1998, data = nnmaps)
+```
+
+```{r}
+#| error: true
+get_temp(2, 2005, data = nnmaps)
+```
+
+```{r}
+get_temp("November", 1999, data =nnmaps, celsius = TRUE,
+         average_fn = function(x) {
+           x %>% sort -> x
+           x[2:(length(x) - 1)] %>% mean %>% return
+         })
+```
+
+## Problem 3
+
+\(a\)
+
+Set the library. Load the dataset.
+
+``` sas
+/* data library for reading/writing data: ---------------------------------- */
+%let in_path = ~/506Assignment4;
+%let out_path = ~/506Assignment4; 
+libname in_lib "&in_path."; 
+libname out_lib "&out_path.";
+
+/* Create a data set recs referring to existing file: ---------------------- */
+data recs;
+ set in_lib.recs2020_public_v5;
+run;
+
+/* view the contents of this file: ----------------------------------------- */
+proc contents data = recs;
+run;
+```
+
+Calculate the frequency and percentage of all the states. Get the result of Michigan.
+
+``` sas
+/* calculate the frequency and percentage: --------------------------------- */
+proc freq data = recs order = freq;
+    tables state_name / nocum out = stateFreq;
+    weight NWEIGHT;
+run;
+
+/* print the highest percentage of records: -------------------------------- */
+proc print data=stateFreq(obs = 1);
+run;
+
+/* get the percentage of all records correspond to Michigan: --------------- */
+data michigan;
+    set stateFreq;
+    if state_name = "Michigan" then output michigan;
+run;
+
+/* print the percentage of Michian: ---------------------------------------- */
+proc print data = michigan;
+run;
+```
+
+California has the highest percentage of records. Full table Highest state
+
+3.17% of records correspond to Michigan. Michigan state
+
+\(b\)
+
+Get the positive data and plot the histogram.
+
+``` sas
+/* get those with strictly positive electricity cost: ---------------------- */
+data positive_cost;
+    set recs;
+    if DOLLAREL > 0;
+run;
+
+/* plot a histogram of the electricity cost: ------------------------------- */
+ods select Histogram;
+proc univariate data = positive_cost noprint;
+    var DOLLAREL;
+    histogram DOLLAREL;
+run;
+```
+
+Histogram
+
+\(c\)
+
+Calculate the log value and plot the histogram.
+
+``` sas
+/* get the log values of electricity cost: --------------------------------- */
+data log_cost;
+    set positive_cost;
+    log_electric_cost = log(DOLLAREL);
+run;
+
+/* plot a histogram of the log of electricity cost: ------------------------ */
+ods select Histogram;
+proc univariate data = log_cost noprint;
+    var log_electric_cost;
+    histogram log_electric_cost;
+run;
+```
+
+Histogram
+
+\(d\)
+
+Remove the missing values and fit the model.
+
+``` sas
+/* remove the missing data in garage column: ------------------------------- */
+data positive_log_cost_garage;
+    set log_cost;
+    if PRKGPLC1 > -1;
+run;
+
+/* fit the regression model: ----------------------------------------------- */
+proc reg data=positive_log_cost_garage;
+    weight NWEIGHT;
+    model log_electric_cost = TOTROOMS PRKGPLC1;
+run;
+```
+
+Model
+
+\(e\)
+
+Get the predicted data.
+
+``` sas
+/* get the predicted values: ------------------------------------------------ */
+proc reg data=positive_log_cost_garage;
+    weight NWEIGHT;
+    model log_electric_cost = TOTROOMS PRKGPLC1;
+    output out = pred_data predicted = pred_log_electric_cost;
+run;
+```
+
+Transform to the original scale and plot the graph.
+
+``` sas
+/* transform the predicted values back to the original scale: --------------- */
+data pred_data;
+    set pred_data;
+    pred_electric_cost = exp(pred_log_electric_cost);
+run;
+
+/* print the scatterplot: --------------------------------------------------- */
+proc sgplot data = pred_data;
+    scatter x = pred_electric_cost y = DOLLAREL;
+run;
+ods html close;
+```
+
+Plot
+
+## Problem 4
+
+\(a\)
+
+This codebook was generated by STATA. It used "codebook" command.
+
+\(b\)
+
+``` sas
+```
+
+``` sas
+```
+
+\(c\)
+
+``` sas
+```
+
+\(d\)
+
+``` stata
+. import sas using "C:\Users\sunjiaqi\Downloads\table.sas7bdat"
+(8 vars, 11,667 obs)
+
+. 
+end of do-file
+```
+
+``` stata
+. codebook
+
+--------------------------------------------------------------------------------------------------------
+CaseID                                                                                       CaseID 2022
+--------------------------------------------------------------------------------------------------------
+
+                  Type: Numeric (int)
+
+                 Range: [1,11775]                     Units: 1
+         Unique values: 11,667                    Missing .: 0/11,667
+
+                  Mean: 5889.99
+             Std. dev.: 3397.96
+
+           Percentiles:     10%       25%       50%       75%       90%
+                           1178      2949      5890      8829     10601
+
+--------------------------------------------------------------------------------------------------------
+weight_pop              Post-stratification weight - Main qualified respondents scaled to U.S. populatio
+--------------------------------------------------------------------------------------------------------
+
+                  Type: Numeric (double)
+
+                 Range: [3666.6386,88732.647]         Units: .0001
+         Unique values: 2,850                     Missing .: 0/11,667
+
+                  Mean: 21866.3
+             Std. dev.:   10953
+
+           Percentiles:     10%       25%       50%       75%       90%
+                        11814.2   15092.1   19790.4     25890   33955.1
+
+--------------------------------------------------------------------------------------------------------
+B3                      Compared to 12 months ago, would you say that you (and your family) are better o
+--------------------------------------------------------------------------------------------------------
+
+                  Type: Numeric (byte)
+
+                 Range: [1,5]                         Units: 1
+         Unique values: 5                         Missing .: 0/11,667
+
+            Tabulation: Freq.  Value
+                        1,020  1
+                        3,276  2
+                        5,287  3
+                        1,605  4
+                          479  5
+
+--------------------------------------------------------------------------------------------------------
+ND2                     Five years from now, do you think that the chance that you will experience a nat
+--------------------------------------------------------------------------------------------------------
+
+                  Type: Numeric (byte)
+
+                 Range: [1,5]                         Units: 1
+         Unique values: 5                         Missing .: 0/11,667
+
+            Tabulation: Freq.  Value
+                        1,065  1
+                        2,915  2
+                        7,201  3
+                          200  4
+                          286  5
+
+--------------------------------------------------------------------------------------------------------
+B7_a                                   In your community - How would you rate economic conditions today:
+--------------------------------------------------------------------------------------------------------
+
+                  Type: Numeric (byte)
+
+                 Range: [1,4]                         Units: 1
+         Unique values: 4                         Missing .: 0/11,667
+
+            Tabulation: Freq.  Value
+                        2,171  1
+                        5,003  2
+                        4,179  3
+                          314  4
+
+--------------------------------------------------------------------------------------------------------
+GH1                           This section will ask some questions about your home and your car. Do you:
+--------------------------------------------------------------------------------------------------------
+
+                  Type: Numeric (byte)
+
+                 Range: [1,4]                         Units: 1
+         Unique values: 4                         Missing .: 0/11,667
+
+            Tabulation: Freq.  Value
+                        4,982  1
+                        2,933  2
+                        2,931  3
+                          821  4
+
+--------------------------------------------------------------------------------------------------------
+ppeducat                                                                        Education (4 Categories)
+--------------------------------------------------------------------------------------------------------
+
+                  Type: Numeric (byte)
+
+                 Range: [1,4]                         Units: 1
+         Unique values: 4                         Missing .: 0/11,667
+
+            Tabulation: Freq.  Value
+                          688  1
+                        2,772  2
+                        3,226  3
+                        4,981  4
+
+--------------------------------------------------------------------------------------------------------
+race_5cat                                                                  Race/Ethnicity - 5 categories
+--------------------------------------------------------------------------------------------------------
+
+                  Type: Numeric (byte)
+
+                 Range: [1,5]                         Units: 1
+         Unique values: 5                         Missing .: 0/11,667
+
+            Tabulation: Freq.  Value
+                        8,060  1
+                        1,225  2
+                        1,464  3
+                          464  4
+                          454  5
+
+. 
+end of do-file
+```
+
+\(e\)
+
+``` stata
+. generate binary_B3 = 0
+
+. replace binary_B3 = 1 if B3 >=3
+(7,371 real changes made)
+
+. 
+end of do-file
+```
+
+\(f\)
+
+Reference: [svy estimation](https://www.stata.com/manuals13/svysvyestimation.pdf)
+
+``` stata
+missing
+```
+
+``` stata
+. svy: logistic binary_B3 i.ND2 i.B7_a i.GH1 i.ppeducat i.race_5cat
+(running logistic on estimation sample)
+
+Survey: Logistic regression
+
+Number of strata =      1                        Number of obs   =      11,667
+Number of PSUs   = 11,667                        Population size = 255,114,223
+                                                 Design df       =      11,666
+                                                 F(17, 11650)    =       55.16
+                                                 Prob > F        =      0.0000
+
+------------------------------------------------------------------------------
+             |             Linearized
+   binary_B3 | Odds ratio   std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         ND2 |
+          2  |   1.053011   .0969572     0.56   0.575     .8791228    1.261294
+          3  |   .9832436   .0841096    -0.20   0.843      .831456    1.162741
+          4  |   1.270674   .2532041     1.20   0.229     .8598042    1.877883
+          5  |   1.253162    .209535     1.35   0.177     .9029573     1.73919
+             |
+        B7_a |
+          2  |   2.252987   .1352537    13.53   0.000     2.002872    2.534336
+          3  |   5.851277   .3975065    26.01   0.000     5.121749    6.684717
+          4  |   13.54044   2.683335    13.15   0.000      9.18187      19.968
+             |
+         GH1 |
+          2  |   .9702475   .0547151    -0.54   0.592      .868712    1.083651
+          3  |   1.121174   .0661211     1.94   0.052     .9987764    1.258571
+          4  |   1.444085   .1411883     3.76   0.000     1.192235    1.749135
+             |
+    ppeducat |
+          2  |   .9803704   .0999426    -0.19   0.846     .8027985     1.19722
+          3  |   1.013306     .10017     0.13   0.894     .8348083    1.229971
+          4  |   1.076589   .1059802     0.75   0.453     .8876637    1.305725
+             |
+   race_5cat |
+          2  |   2.352759   .1901596    10.59   0.000     2.008042    2.756654
+          3  |    1.30298   .0921066     3.74   0.000     1.134385    1.496631
+          4  |   1.730852   .2151733     4.41   0.000     1.356534    2.208458
+          5  |   1.007829   .1690747     0.05   0.963     .7253934    1.400233
+             |
+       _cons |   .5469292    .072147    -4.57   0.000     .4223136    .7083161
+------------------------------------------------------------------------------
+Note: _cons estimates baseline odds.
+
+. 
+end of do-file
+```
+
+``` stata
+. svy: logit binary_B3 i.ND2 i.B7_a i.GH1 i.ppeducat i.race_5cat
+(running logit on estimation sample)
+
+Survey: Logistic regression
+
+Number of strata =      1                        Number of obs   =      11,667
+Number of PSUs   = 11,667                        Population size = 255,114,223
+                                                 Design df       =      11,666
+                                                 F(17, 11650)    =       55.16
+                                                 Prob > F        =      0.0000
+
+------------------------------------------------------------------------------
+             |             Linearized
+   binary_B3 | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         ND2 |
+          2  |   .0516539   .0920761     0.56   0.575    -.1288307    .2321385
+          3  |  -.0168983    .085543    -0.20   0.843    -.1845769    .1507802
+          4  |   .2395472   .1992676     1.20   0.229    -.1510506     .630145
+          5  |   .2256698    .167205     1.35   0.177      -.10208    .5534197
+             |
+        B7_a |
+          2  |    .812257   .0600331    13.53   0.000     .6945821    .9299318
+          3  |    1.76666    .067935    26.01   0.000     1.633496    1.899824
+          4  |   2.605681   .1981719    13.15   0.000     2.217231    2.994131
+             |
+         GH1 |
+          2  |  -.0302041   .0563929    -0.54   0.592    -.1407436    .0803354
+          3  |   .1143763   .0589749     1.94   0.052    -.0012243    .2299769
+          4  |   .3674756   .0977701     3.76   0.000     .1758299    .5591214
+             |
+    ppeducat |
+          2  |  -.0198248   .1019437    -0.19   0.846    -.2196516    .1800019
+          3  |   .0132185   .0988547     0.13   0.894    -.1805532    .2069902
+          4  |   .0737979   .0984407     0.75   0.453    -.1191623    .2667581
+             |
+   race_5cat |
+          2  |   .8555888   .0808241    10.59   0.000       .69716    1.014017
+          3  |   .2646536   .0706892     3.74   0.000     .1260909    .4032164
+          4  |   .5486136   .1243165     4.41   0.000     .3049326    .7922947
+          5  |   .0077989   .1677612     0.05   0.963    -.3210411    .3366389
+             |
+       _cons |   -.603436   .1319128    -4.57   0.000    -.8620071   -.3448648
+------------------------------------------------------------------------------
+
+. 
+end of do-file
+```
+
+\(g\)
+
+``` stata
+. save "C:\Users\sunjiaqi\Downloads\stata_data", replace
+file C:\Users\sunjiaqi\Downloads\stata_data.dta saved
+
+. 
+end of do-file
+```
+
+\(h\)
+
+```{r}
+# install.packages("survey")
+library(survey)
+library(haven)
+library(DescTools)
+
+public <- read_dta("D:/Code/R/506A4/stata_data.dta")
+```
+
+```{r}
+public$binary_B3 <- factor(public$binary_B3)
+public$ND2 <- factor(public$ND2)
+public$B7_a <- factor(public$B7_a)
+public$GH1 <- factor(public$GH1)
+public$ppeducat <- factor(public$ppeducat)
+public$race_5cat <- factor(public$race_5cat)
+```
+
+```{r}
+# install.packages("fastDummies")
+library(fastDummies)
+public_dummy <- dummy_cols(public, select_columns = c("ND2", "B7_a", "GH1", "ppeducat", "race_5cat"), 
+           remove_first_dummy = TRUE, remove_selected_columns = TRUE)
+
+
+design <- svydesign(id = ~ CaseID, weight = ~ weight_pop, data = public_dummy)
+
+svy_m <- svyglm(formula = binary_B3 ~ ND2_2 + ND2_3 + ND2_4 + ND2_5 + B7_a_2 + B7_a_3 + 
+         B7_a_4 + GH1_2 + GH1_3 + GH1_4 + ppeducat_2 + ppeducat_3 + ppeducat_4 + 
+         race_5cat_2 + race_5cat_3 + race_5cat_4 + race_5cat_5, 
+       design = design, data = public_dummy, family = "binomial")
+
+summary(svy_m)
+
+psrsq(svy_m)
+
+
+
+
+
+design <- svydesign(id = ~ CaseID, weight = ~ weight_pop, data = public)
+m1 <- svyglm(formula = binary_B3 ~ ND2 + B7_a + GH1 + ppeducat + race_5cat, 
+       design = design, data = public, family = "binomial")
+
+```
